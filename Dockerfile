@@ -1,6 +1,6 @@
-# Docker file to run AWS CLI, S3CMD and RDS tools.
-FROM cgswong/java:openjdk8
-MAINTAINER Stuart Wong <cgs.wong@gmail.com>
+# Based on cgswong/aws
+FROM buildpack-deps:jessie-scm
+MAINTAINER David Lozano <david@kantox.com>
 
 ENV S3_TMP /tmp/s3cmd.zip
 ENV S3_ZIP /tmp/s3cmd-master
@@ -13,16 +13,29 @@ ENV PAGER more
 
 WORKDIR /tmp
 
-RUN apk --no-cache add \
+RUN apt-get update && \
+    apt-get install -y apt-transport-https ca-certificates && \
+    apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D && \
+    echo "deb https://apt.dockerproject.org/repo debian-jessie main" > /etc/apt/sources.list.d/docker.list && \
+    apt-get update
+
+RUN apt-get install -y \
       bash \
       bash-completion \
       groff \
       less \
       curl \
       jq \
-      py-pip \
+      python-pip \
       python \
-      openssh &&\
+      unzip \
+      docker \
+      docker-engine=1.11.2-0~jessie && \
+    rm -rf /var/lib/apt/lists/* && \
+    curl -sSL https://github.com/harbur/captain/releases/download/v1.1.0/captain_linux_amd64 > /usr/bin/captain && \
+    chmod +x /usr/bin/captain && \
+    curl -sSL https://storage.googleapis.com/kubernetes-release/release/v1.5.1/bin/linux/amd64/kubectl > /usr/bin/kubectl && \
+    chmod +x /usr/bin/kubectl && \
     pip install --upgrade \
       awscli \
       pip \
@@ -38,7 +51,14 @@ RUN apk --no-cache add \
     mkdir ~/.aws &&\
     chmod 700 ~/.aws
 
-# Expose volume for adding credentials
-VOLUME ["~/.aws"]
+COPY update_secret.bash docker-credential-ecr-login /usr/bin/
 
+# AWS credentials must be provided via ENV variables
+#
+#
+# Provide a volume in /var/run/docker.sock if you want
+# to interact with the node docker
+#
+#
 CMD ["/bin/bash", "--login"]
+
